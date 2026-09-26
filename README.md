@@ -246,3 +246,183 @@ python generate_and_compare.py    # 7. GAN 增广对比
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## ResNet-50 升级实验（2026 · 新增）/ ResNet-50 Upgrade (2026 · New)
+
+> **声明 / Note**：原论文及上方全部 ResNet 实验基于 **ResNet-18**（2022 年原始实验，结果全部保留、未做改动）。本节将主干网络升级为 **ResNet-50**，采用现代训练配方（ImageNet 预训练微调、RandAugment 数据增强、AdamW + cosine 衰减、BF16 混合精度，输入 160×160，NVIDIA RTX 5070），复现论文 2.2 节的亮度扰动与直方图均衡化实验。
+> The original paper and all ResNet results above use **ResNet-18** (2022 original experiments, kept unchanged). This section upgrades the backbone to **ResNet-50** with a modern training recipe (ImageNet-pretrained fine-tuning, RandAugment, AdamW + cosine schedule, BF16 mixed precision, 160×160 input, NVIDIA RTX 5070) and reproduces the brightness-perturbation & histogram-equalization experiments from Section 2.2.
+
+### 光照鲁棒性对比 / Illumination Robustness
+
+| 条件 / Condition | 论文 ResNet-18 | ResNet-50 (ckpt A) | ResNet-50 (ckpt B) |
+|---|:---:|:---:|:---:|
+| 正常 / Normal | 88.92% | 97.28% | **97.56%** |
+| 亮度 ×0.4 / Brightness ×0.4 | 80.97% | 96.30% | 96.94% |
+| 亮度 ×1.6 / Brightness ×1.6 | 82.46% | 95.42% | 95.85% |
+| ×0.4 + 直方图均衡化 / + hist-eq | 有提升 / improved | 94.55% | 95.11% |
+| ×1.6 + 直方图均衡化 / + hist-eq | 有提升 / improved | 89.01% | 90.22% |
+
+> ckpt A / ckpt B 为两次独立训练得到的最优权重，B 为最终模型。
+> ckpt A and ckpt B are best checkpoints from two independent training runs; B is the final model.
+
+### 关键发现 / Key Findings
+
+1. **光照鲁棒性大幅提升 / Much stronger illumination robustness**：亮度 ×0.4 / ×1.6 下 ResNet-50 仅下降 0.6~2.1 个点，而论文 ResNet-18 下降约 6~8 个点。一个合理的解释：训练配方中的 RandAugment 自带亮度/对比度类扰动，模型在训练阶段就学到了光照不变性——用更简单的训练时增强达到了与论文核心贡献（GAN 亮度增广）同向的效果。
+   Under brightness ×0.4 / ×1.6, ResNet-50 drops only 0.6~2.1 points, while the paper's ResNet-18 drops 6~8 points. A plausible explanation: RandAugment already includes brightness/contrast-style perturbations, so the model learns illumination invariance during training — a simpler alternative that achieves the same goal as the paper's GAN-based brightness augmentation.
+
+2. **直方图均衡化结论反转 / Histogram equalization reverses**：论文中直方图均衡化能提升较脆弱的 ResNet-18 的准确率；但对本节的强模型，均衡化反而降低准确率（×0.4：96.94% → 95.11%；×1.6：95.85% → 90.22%）。逐通道均衡化引入的颜色失真对强模型是净损失——**图像预处理的价值取决于模型自身强度，并非普适提升**。
+   In the paper, histogram equalization improved the weaker ResNet-18; for the stronger ResNet-50 here, it *hurts* accuracy (×0.4: 96.94% → 95.11%; ×1.6: 95.85% → 90.22%). The color distortion introduced by per-channel equalization is a net loss for a strong model — **the value of image preprocessing depends on model strength and is not a universal gain**.
+
+3. **独立新测试集验证 / Independent fresh test set**：最终模型（ckpt B）在 CIFAR-10 官方测试集上为 **97.56%**，在 CIFAR-10.1（v6，2,000 张按 CIFAR-10 分布重新采集、训练时从未见过的图片）上为 **93.75%**，落差 -3.81 点，处于该基准的典型范围，表明结果未对原测试集过拟合。
+   The final model (ckpt B) reaches **97.56%** on the CIFAR-10 official test set and **93.75%** on CIFAR-10.1 (v6, 2,000 newly collected images never seen during training), a -3.81 point gap within the typical range for this benchmark, indicating no overfitting to the original test set.
+
+### 复现 / Reproduce
+
+```bash
+python illumination_experiment.py   # 亮度扰动 + 直方图均衡化（上表数据来源）
+python test.py                      # CIFAR-10 官方测试集（含每类准确率）
+python eval_cifar101.py             # CIFAR-10.1 独立测试集
+```
+
+### 本节相关文件 / Files added in this section
+
+- `illumination_experiment.py` — 亮度扰动 + 直方图均衡化实验（上表数据来源）
+- `test.py` — CIFAR-10 官方测试集评估（总准确率 + 每类准确率）
+- `eval_cifar101.py` — CIFAR-10.1 独立测试集评估
+
+---
+
+## ResNet-50 升级实验（2026 · 新增）/ ResNet-50 Upgrade (2026 · New)
+
+> **声明 / Note**：原论文及上方全部 ResNet 实验基于 **ResNet-18**（2022 年原始实验，结果全部保留、未做改动）。本节将主干网络升级为 **ResNet-50**，采用现代训练配方（ImageNet 预训练微调、RandAugment 数据增强、AdamW + cosine 衰减、BF16 混合精度，输入 160×160，NVIDIA RTX 5070），复现论文 2.2 节的亮度扰动与直方图均衡化实验。
+> The original paper and all ResNet results above use **ResNet-18** (2022 original experiments, kept unchanged). This section upgrades the backbone to **ResNet-50** with a modern training recipe (ImageNet-pretrained fine-tuning, RandAugment, AdamW + cosine schedule, BF16 mixed precision, 160×160 input, NVIDIA RTX 5070) and reproduces the brightness-perturbation & histogram-equalization experiments from Section 2.2.
+
+### 光照鲁棒性对比 / Illumination Robustness
+
+| 条件 / Condition | 论文 ResNet-18 | ResNet-50 (ckpt A) | ResNet-50 (ckpt B) |
+|---|:---:|:---:|:---:|
+| 正常 / Normal | 88.92% | 97.28% | **97.56%** |
+| 亮度 ×0.4 / Brightness ×0.4 | 80.97% | 96.30% | 96.94% |
+| 亮度 ×1.6 / Brightness ×1.6 | 82.46% | 95.42% | 95.85% |
+| ×0.4 + 直方图均衡化 / + hist-eq | 有提升 / improved | 94.55% | 95.11% |
+| ×1.6 + 直方图均衡化 / + hist-eq | 有提升 / improved | 89.01% | 90.22% |
+
+> ckpt A / ckpt B 为两次独立训练得到的最优权重，B 为最终模型。
+> ckpt A and ckpt B are best checkpoints from two independent training runs; B is the final model.
+
+### 关键发现 / Key Findings
+
+1. **光照鲁棒性大幅提升 / Much stronger illumination robustness**：亮度 ×0.4 / ×1.6 下 ResNet-50 仅下降 0.6~2.1 个点，而论文 ResNet-18 下降约 6~8 个点。一个合理的解释：训练配方中的 RandAugment 自带亮度/对比度类扰动，模型在训练阶段就学到了光照不变性——用更简单的训练时增强达到了与论文核心贡献（GAN 亮度增广）同向的效果。
+   Under brightness ×0.4 / ×1.6, ResNet-50 drops only 0.6~2.1 points, while the paper's ResNet-18 drops 6~8 points. A plausible explanation: RandAugment already includes brightness/contrast-style perturbations, so the model learns illumination invariance during training — a simpler alternative that achieves the same goal as the paper's GAN-based brightness augmentation.
+
+2. **直方图均衡化结论反转 / Histogram equalization reverses**：论文中直方图均衡化能提升较脆弱的 ResNet-18 的准确率；但对本节的强模型，均衡化反而降低准确率（×0.4：96.94% → 95.11%；×1.6：95.85% → 90.22%）。逐通道均衡化引入的颜色失真对强模型是净损失——**图像预处理的价值取决于模型自身强度，并非普适提升**。
+   In the paper, histogram equalization improved the weaker ResNet-18; for the stronger ResNet-50 here, it *hurts* accuracy (×0.4: 96.94% → 95.11%; ×1.6: 95.85% → 90.22%). The color distortion introduced by per-channel equalization is a net loss for a strong model — **the value of image preprocessing depends on model strength and is not a universal gain**.
+
+3. **独立新测试集验证 / Independent fresh test set**：最终模型（ckpt B）在 CIFAR-10 官方测试集上为 **97.56%**，在 CIFAR-10.1（v6，2,000 张按 CIFAR-10 分布重新采集、训练时从未见过的图片）上为 **93.75%**，落差 -3.81 点，处于该基准的典型范围，表明结果未对原测试集过拟合。
+   The final model (ckpt B) reaches **97.56%** on the CIFAR-10 official test set and **93.75%** on CIFAR-10.1 (v6, 2,000 newly collected images never seen during training), a -3.81 point gap within the typical range for this benchmark, indicating no overfitting to the original test set.
+
+### 复现 / Reproduce
+
+```bash
+python illumination_experiment.py   # 亮度扰动 + 直方图均衡化（上表数据来源）
+python test.py                      # CIFAR-10 官方测试集（含每类准确率）
+python eval_cifar101.py             # CIFAR-10.1 独立测试集
+```
+
+### 本节相关文件 / Files added in this section
+
+- `illumination_experiment.py` — 亮度扰动 + 直方图均衡化实验（上表数据来源）
+- `test.py` — CIFAR-10 官方测试集评估（总准确率 + 每类准确率）
+- `eval_cifar101.py` — CIFAR-10.1 独立测试集评估
+
+---
+
+## ResNet-50 升级实验（2026 · 新增）/ ResNet-50 Upgrade (2026 · New)
+
+> **声明 / Note**：原论文及上方全部 ResNet 实验基于 **ResNet-18**（2022 年原始实验，结果全部保留、未做改动）。本节将主干网络升级为 **ResNet-50**，采用现代训练配方（ImageNet 预训练微调、RandAugment 数据增强、AdamW + cosine 衰减、BF16 混合精度，输入 160×160，NVIDIA RTX 5070），复现论文 2.2 节的亮度扰动与直方图均衡化实验。
+> The original paper and all ResNet results above use **ResNet-18** (2022 original experiments, kept unchanged). This section upgrades the backbone to **ResNet-50** with a modern training recipe (ImageNet-pretrained fine-tuning, RandAugment, AdamW + cosine schedule, BF16 mixed precision, 160×160 input, NVIDIA RTX 5070) and reproduces the brightness-perturbation & histogram-equalization experiments from Section 2.2.
+
+### 光照鲁棒性对比 / Illumination Robustness
+
+| 条件 / Condition | 论文 ResNet-18 | ResNet-50 (ckpt A) | ResNet-50 (ckpt B) |
+|---|:---:|:---:|:---:|
+| 正常 / Normal | 88.92% | 97.28% | **97.56%** |
+| 亮度 ×0.4 / Brightness ×0.4 | 80.97% | 96.30% | 96.94% |
+| 亮度 ×1.6 / Brightness ×1.6 | 82.46% | 95.42% | 95.85% |
+| ×0.4 + 直方图均衡化 / + hist-eq | 有提升 / improved | 94.55% | 95.11% |
+| ×1.6 + 直方图均衡化 / + hist-eq | 有提升 / improved | 89.01% | 90.22% |
+
+> ckpt A / ckpt B 为两次独立训练得到的最优权重，B 为最终模型。
+> ckpt A and ckpt B are best checkpoints from two independent training runs; B is the final model.
+
+### 关键发现 / Key Findings
+
+1. **光照鲁棒性大幅提升 / Much stronger illumination robustness**：亮度 ×0.4 / ×1.6 下 ResNet-50 仅下降 0.6~2.1 个点，而论文 ResNet-18 下降约 6~8 个点。一个合理的解释：训练配方中的 RandAugment 自带亮度/对比度类扰动，模型在训练阶段就学到了光照不变性——用更简单的训练时增强达到了与论文核心贡献（GAN 亮度增广）同向的效果。
+   Under brightness ×0.4 / ×1.6, ResNet-50 drops only 0.6~2.1 points, while the paper's ResNet-18 drops 6~8 points. A plausible explanation: RandAugment already includes brightness/contrast-style perturbations, so the model learns illumination invariance during training — a simpler alternative that achieves the same goal as the paper's GAN-based brightness augmentation.
+
+2. **直方图均衡化结论反转 / Histogram equalization reverses**：论文中直方图均衡化能提升较脆弱的 ResNet-18 的准确率；但对本节的强模型，均衡化反而降低准确率（×0.4：96.94% → 95.11%；×1.6：95.85% → 90.22%）。逐通道均衡化引入的颜色失真对强模型是净损失——**图像预处理的价值取决于模型自身强度，并非普适提升**。
+   In the paper, histogram equalization improved the weaker ResNet-18; for the stronger ResNet-50 here, it *hurts* accuracy (×0.4: 96.94% → 95.11%; ×1.6: 95.85% → 90.22%). The color distortion introduced by per-channel equalization is a net loss for a strong model — **the value of image preprocessing depends on model strength and is not a universal gain**.
+
+3. **独立新测试集验证 / Independent fresh test set**：最终模型（ckpt B）在 CIFAR-10 官方测试集上为 **97.56%**，在 CIFAR-10.1（v6，2,000 张按 CIFAR-10 分布重新采集、训练时从未见过的图片）上为 **93.75%**，落差 -3.81 点，处于该基准的典型范围，表明结果未对原测试集过拟合。
+   The final model (ckpt B) reaches **97.56%** on the CIFAR-10 official test set and **93.75%** on CIFAR-10.1 (v6, 2,000 newly collected images never seen during training), a -3.81 point gap within the typical range for this benchmark, indicating no overfitting to the original test set.
+
+### 复现 / Reproduce
+
+```bash
+python illumination_experiment.py   # 亮度扰动 + 直方图均衡化（上表数据来源）
+python test.py                      # CIFAR-10 官方测试集（含每类准确率）
+python eval_cifar101.py             # CIFAR-10.1 独立测试集
+```
+
+### 本节相关文件 / Files added in this section
+
+- `illumination_experiment.py` — 亮度扰动 + 直方图均衡化实验（上表数据来源）
+- `test.py` — CIFAR-10 官方测试集评估（总准确率 + 每类准确率）
+- `eval_cifar101.py` — CIFAR-10.1 独立测试集评估
+
+---
+
+## ResNet-50 升级实验（2026 · 新增）/ ResNet-50 Upgrade (2026 · New)
+
+> **声明 / Note**：原论文及上方全部 ResNet 实验基于 **ResNet-18**（2022 年原始实验，结果全部保留、未做改动）。本节将主干网络升级为 **ResNet-50**，采用现代训练配方（ImageNet 预训练微调、RandAugment 数据增强、AdamW + cosine 衰减、BF16 混合精度，输入 160×160，NVIDIA RTX 5070），复现论文 2.2 节的亮度扰动与直方图均衡化实验。
+> The original paper and all ResNet results above use **ResNet-18** (2022 original experiments, kept unchanged). This section upgrades the backbone to **ResNet-50** with a modern training recipe (ImageNet-pretrained fine-tuning, RandAugment, AdamW + cosine schedule, BF16 mixed precision, 160×160 input, NVIDIA RTX 5070) and reproduces the brightness-perturbation & histogram-equalization experiments from Section 2.2.
+
+### 光照鲁棒性对比 / Illumination Robustness
+
+| 条件 / Condition | 论文 ResNet-18 | ResNet-50 (ckpt A) | ResNet-50 (ckpt B) |
+|---|:---:|:---:|:---:|
+| 正常 / Normal | 88.92% | 97.28% | **97.56%** |
+| 亮度 ×0.4 / Brightness ×0.4 | 80.97% | 96.30% | 96.94% |
+| 亮度 ×1.6 / Brightness ×1.6 | 82.46% | 95.42% | 95.85% |
+| ×0.4 + 直方图均衡化 / + hist-eq | 有提升 / improved | 94.55% | 95.11% |
+| ×1.6 + 直方图均衡化 / + hist-eq | 有提升 / improved | 89.01% | 90.22% |
+
+> ckpt A / ckpt B 为两次独立训练得到的最优权重，B 为最终模型。
+> ckpt A and ckpt B are best checkpoints from two independent training runs; B is the final model.
+
+### 关键发现 / Key Findings
+
+1. **光照鲁棒性大幅提升 / Much stronger illumination robustness**：亮度 ×0.4 / ×1.6 下 ResNet-50 仅下降 0.6~2.1 个点，而论文 ResNet-18 下降约 6~8 个点。一个合理的解释：训练配方中的 RandAugment 自带亮度/对比度类扰动，模型在训练阶段就学到了光照不变性——用更简单的训练时增强达到了与论文核心贡献（GAN 亮度增广）同向的效果。
+   Under brightness ×0.4 / ×1.6, ResNet-50 drops only 0.6~2.1 points, while the paper's ResNet-18 drops 6~8 points. A plausible explanation: RandAugment already includes brightness/contrast-style perturbations, so the model learns illumination invariance during training — a simpler alternative that achieves the same goal as the paper's GAN-based brightness augmentation.
+
+2. **直方图均衡化结论反转 / Histogram equalization reverses**：论文中直方图均衡化能提升较脆弱的 ResNet-18 的准确率；但对本节的强模型，均衡化反而降低准确率（×0.4：96.94% → 95.11%；×1.6：95.85% → 90.22%）。逐通道均衡化引入的颜色失真对强模型是净损失——**图像预处理的价值取决于模型自身强度，并非普适提升**。
+   In the paper, histogram equalization improved the weaker ResNet-18; for the stronger ResNet-50 here, it *hurts* accuracy (×0.4: 96.94% → 95.11%; ×1.6: 95.85% → 90.22%). The color distortion introduced by per-channel equalization is a net loss for a strong model — **the value of image preprocessing depends on model strength and is not a universal gain**.
+
+3. **独立新测试集验证 / Independent fresh test set**：最终模型（ckpt B）在 CIFAR-10 官方测试集上为 **97.56%**，在 CIFAR-10.1（v6，2,000 张按 CIFAR-10 分布重新采集、训练时从未见过的图片）上为 **93.75%**，落差 -3.81 点，处于该基准的典型范围，表明结果未对原测试集过拟合。
+   The final model (ckpt B) reaches **97.56%** on the CIFAR-10 official test set and **93.75%** on CIFAR-10.1 (v6, 2,000 newly collected images never seen during training), a -3.81 point gap within the typical range for this benchmark, indicating no overfitting to the original test set.
+
+### 复现 / Reproduce
+
+```bash
+python illumination_experiment.py   # 亮度扰动 + 直方图均衡化（上表数据来源）
+python test.py                      # CIFAR-10 官方测试集（含每类准确率）
+python eval_cifar101.py             # CIFAR-10.1 独立测试集
+```
+
+### 本节相关文件 / Files added in this section
+
+- `illumination_experiment.py` — 亮度扰动 + 直方图均衡化实验（上表数据来源）
+- `test.py` — CIFAR-10 官方测试集评估（总准确率 + 每类准确率）
+- `eval_cifar101.py` — CIFAR-10.1 独立测试集评估
