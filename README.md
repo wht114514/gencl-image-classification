@@ -6,9 +6,9 @@
 
 ---
 ### Author
-Wang Haotian  **Northwest A&F University Student**
+Haotian Wang **Northwest A&F University Student**
 
-Liu Xiang   **Qingdao University of Technology Student**
+Xiang Liu   **Qingdao University of Technology Student**
 <a name="english"></a>
 
 ## English
