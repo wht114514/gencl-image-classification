@@ -5,25 +5,25 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# ============ 参数 ============
+
 EPOCHS = 10
 BATCH_SIZE = 64
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# 基础的归一化（测试集统一用它）
+
 normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
-# 三种训练数据亮度设置：
+
 #   baseline : 原样
-#   brighter : 亮度 x1.4（增加 40%）
-#   darker   : 亮度 x0.6（减少 40%）
+#   brighter : 亮度 x1.4
+#   darker   : 亮度 x0.6
 brightness_configs = {
     'baseline': 1.0,
     'brighter': 1.4,
     'darker':   0.6,
 }
 
-# 测试集固定用原始亮度
+
 test_transform = transforms.Compose([
     transforms.ToTensor(),
     normalize,
@@ -45,9 +45,7 @@ class LinearNet(nn.Module):
 
 
 def make_trainloader(brightness):
-    """根据亮度倍数构造训练集。ColorJitter 的 brightness 参数：
-       brightness=1.0 表示不变；1.4 表示在 [0.6, 1.4] 范围内随机采样亮度。
-       这里我们想精确控制为「固定 x1.4 / x0.6」，所以用 Lambda 直接缩放。"""
+
     if brightness == 1.0:
         train_transform = transforms.Compose([transforms.ToTensor(), normalize])
     else:
@@ -65,7 +63,7 @@ def make_trainloader(brightness):
 
 
 def train_one(brightness):
-    """训练一个线性模型，返回每个 epoch 的测试准确率列表。"""
+
     trainloader = make_trainloader(brightness)
     net = LinearNet().to(DEVICE)
     criterion = nn.CrossEntropyLoss()
@@ -83,7 +81,7 @@ def train_one(brightness):
             optimizer.step()
         scheduler.step()
 
-        # 测试（固定原始亮度测试集）
+
         net.eval()
         correct = total = 0
         with torch.no_grad():
@@ -98,10 +96,9 @@ def train_one(brightness):
     return accs
 
 
-# ============ 主流程：只跑变亮/变暗，基线直接用已有结果 ============
 print(f'设备: {DEVICE}')
 
-# 基线（原始亮度）不重跑，直接用你已测得的结果：10 个 epoch 均为 37.20%
+# 基线37.20%
 BASELINE_FINAL_ACC = 37.20
 results = {}
 
@@ -111,7 +108,6 @@ for name, brightness in brightness_configs.items():
     print(f'\n开始训练 [{name}] 亮度 x{brightness}:')
     results[name] = train_one(brightness)
 
-# ============ 画对比图 ============
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -122,12 +118,11 @@ colors = {'baseline': '#2E6FDB', 'brighter': '#E63946', 'darker': '#2A9D8F'}
 labels = {'baseline': '基线(原始亮度)', 'brighter': '变亮 40%', 'darker': '变暗 40%'}
 markers = {'baseline': 'o', 'brighter': 's', 'darker': '^'}
 
-# 画变亮/变暗两条曲线
+
 for name, accs in results.items():
     ax.plot(epochs, accs, color=colors[name], marker=markers[name],
             markersize=4, linewidth=2, label=labels[name])
 
-# 基线画一条水平虚线（你已有的实验结果）
 ax.axhline(BASELINE_FINAL_ACC, color=colors['baseline'], linestyle='--',
            linewidth=2, label=f"{labels['baseline']} {BASELINE_FINAL_ACC}%")
 
@@ -148,7 +143,7 @@ print(f'\n对比图已保存为: {filename}')
 plt.show()
 
 # 打印总结
-print('\n========== 实验结果 ==========')
+print('\n实验结果=')
 print(f"{'基线(原始亮度)':>10}: 最终 {BASELINE_FINAL_ACC:.2f}%  (已有结果，未重跑)")
 for name, accs in results.items():
     print(f'{labels[name]:>10}: 最终 {accs[-1]:.2f}%  (最高 {max(accs):.2f}%)')
