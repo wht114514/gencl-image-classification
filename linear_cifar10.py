@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# ---------- 1. 数据 ----------
+
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -21,7 +21,7 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,
 testloader  = torch.utils.data.DataLoader(testset, batch_size=64,
                                           shuffle=False, num_workers=0)
 
-# ---------- 2. 模型 ----------
+
 class LinearNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -37,10 +37,10 @@ net = LinearNet().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
 
-# ---------- 3. 训练 + 记录 ----------
+
 EPOCHS = 50
-train_losses = []      # 每个 epoch 的平均训练 loss
-test_accs = []         # 每个 epoch 的测试准确率
+train_losses = []      
+test_accs = []        
 
 for epoch in range(EPOCHS):
     # --- 训练 ---
@@ -58,7 +58,7 @@ for epoch in range(EPOCHS):
     avg_loss = running_loss / len(trainloader)
     train_losses.append(avg_loss)
 
-    # --- 每个 epoch 结束后测一次准确率 ---
+
     net.eval()
     correct = 0
     total = 0
@@ -74,7 +74,7 @@ for epoch in range(EPOCHS):
     test_accs.append(acc)
     print(f'Epoch {epoch+1}/{EPOCHS}  Loss: {avg_loss:.3f}  测试准确率: {acc:.2f}%')
 
-# ---------- 4. 画曲线（美化版） ----------
+
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -92,7 +92,7 @@ ax1.tick_params(axis='x', labelsize=10)
 ax1.grid(True, linestyle='--', alpha=0.3)
 ax1.set_xlim(1, EPOCHS)
 
-# 右轴：测试准确率
+
 color_acc = '#E63946'
 ax2 = ax1.twinx()
 ax2.plot(epochs, test_accs, color=color_acc, linewidth=2,
@@ -101,7 +101,6 @@ ax2.set_ylabel('Accuracy (%)', color=color_acc, fontsize=13)
 ax2.tick_params(axis='y', labelcolor=color_acc, labelsize=10)
 ax2.set_ylim(0, 100)
 
-# 标注最终准确率
 best_acc = max(test_accs)
 final_acc = test_accs[-1]
 ax2.axhline(best_acc, color=color_acc, linestyle=':', linewidth=1, alpha=0.5)
@@ -113,7 +112,7 @@ ax2.annotate(f'最高 {best_acc:.2f}%',
 
 plt.title('Linear Net on CIFAR-10 训练曲线', fontsize=15, fontweight='bold', pad=15)
 
-# 合并两个轴的图例
+
 lines1, labels1 = ax1.get_legend_handles_labels()
 lines2, labels2 = ax2.get_legend_handles_labels()
 ax1.legend(lines1 + lines2, labels1 + labels2, loc='center right', fontsize=10,
@@ -121,7 +120,7 @@ ax1.legend(lines1 + lines2, labels1 + labels2, loc='center right', fontsize=10,
 
 fig.tight_layout()
 
-# 根据当前时间保存图像，命名规则：netname_yyyy_mm_dd.png
+#保存图像
 netname = 'linear'
 date_str = datetime.now().strftime('%Y_%m_%d')
 filename = f'{netname}_{date_str}.png'
