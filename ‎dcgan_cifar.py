@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from datetime import datetime
 
-# ============ 超参数 ============
+
 EPOCHS = 50
 BATCH_SIZE = 64
 LATENT_DIM = 100
@@ -18,7 +18,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 torch.manual_seed(42)
 
-# ============ 数据 ============
+
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -32,10 +32,9 @@ CLASSES = ['airplane', 'automobile', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck']
 
 
-# ============ 条件生成器 cG ============
+
 class Generator(nn.Module):
-    """噪声 100 维 + 类别嵌入 100 维，相加后送入转置卷积。
-    这样 G 可以“按指定类别”生成图片。"""
+
     def __init__(self):
         super().__init__()
         self.label_emb = nn.Embedding(NUM_CLASSES, LATENT_DIM)
@@ -54,12 +53,12 @@ class Generator(nn.Module):
         )
 
     def forward(self, z, labels):
-        z = z + self.label_emb(labels)          # 噪声 + 类别嵌入
+        z = z + self.label_emb(labels)         
         z = z.view(z.size(0), LATENT_DIM, 1, 1)
         return self.main(z)
 
 
-# ============ 条件判别器 cD ============
+
 class Discriminator(nn.Module):
     """图片 3 通道 + 类别嵌入图 1 通道，拼成 4 通道输入。"""
     def __init__(self):
@@ -79,8 +78,8 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, x, labels):
-        lab = self.label_emb(labels).view(-1, 1, 32, 32)   # 类别 -> 1 通道图
-        x = torch.cat([x, lab], dim=1)                     # 拼成 4 通道
+        lab = self.label_emb(labels).view(-1, 1, 32, 32)   
+        x = torch.cat([x, lab], dim=1)                     
         return self.main(x).view(-1, 1)
 
 
@@ -98,11 +97,11 @@ criterion = nn.BCELoss()
 optimizerD = torch.optim.Adam(netD.parameters(), lr=LR, betas=(BETA1, 0.999))
 optimizerG = torch.optim.Adam(netG.parameters(), lr=LR, betas=(BETA1, 0.999))
 
-# 固定噪声 + 固定标签：每行一个类别（8 张/行），观察每类的生成质量
-fixed_noise = torch.randn(64, LATENT_DIM, device=DEVICE)
-fixed_labels = torch.arange(64, device=DEVICE) // 8   # 0..7 各 8 张
 
-# ============ 进度图保存 ============
+fixed_noise = torch.randn(64, LATENT_DIM, device=DEVICE)
+fixed_labels = torch.arange(64, device=DEVICE) // 8   
+
+
 os.makedirs('gan_progress_cond', exist_ok=True)
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
@@ -122,7 +121,7 @@ def save_progress(epoch):
     plt.close(fig)
 
 
-# ============ 训练 ============
+
 print(f'设备: {DEVICE}')
 G_losses, D_losses = [], []
 
@@ -134,7 +133,7 @@ for epoch in range(EPOCHS):
         real_labels = torch.full((batch, 1), 1.0, device=DEVICE)
         fake_labels = torch.full((batch, 1), 0.0, device=DEVICE)
 
-        # ---- 1. 训练判别器 D（带类别条件）----
+
         netD.zero_grad()
         lossD_real = criterion(netD(real_imgs, real_cls), real_labels)
 
@@ -147,7 +146,7 @@ for epoch in range(EPOCHS):
         lossD.backward()
         optimizerD.step()
 
-        # ---- 2. 训练生成器 G ----
+
         netG.zero_grad()
         lossG = criterion(netD(fake_imgs, fake_cls), real_labels)
         lossG.backward()
@@ -167,7 +166,6 @@ for epoch in range(EPOCHS):
 torch.save(netG.state_dict(), 'cdgan_generator_final.pth')
 print('训练完成，已保存 cdgan_generator_final.pth')
 
-# ============ loss 曲线 ============
 fig, ax = plt.subplots(figsize=(10, 5))
 ax.plot(G_losses, label='生成器 Loss', color='#E63946', alpha=0.7, linewidth=1)
 ax.plot(D_losses, label='判别器 Loss', color='#2E6FDB', alpha=0.7, linewidth=1)
