@@ -9,7 +9,7 @@ CHANNELS = 3
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-# 生成器结构必须和训练时完全一致
+
 class Generator(nn.Module):
     def __init__(self):
         super().__init__()
@@ -32,18 +32,17 @@ class Generator(nn.Module):
         return self.main(z)
 
 
-# 加载训练好的生成器（改这里切换不同 epoch 的权重）
+
 checkpoint = 'generator_final.pth'
 netG = Generator().to(DEVICE)
 netG.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
 netG.eval()
 
-# 生成 64 张图
+
 with torch.no_grad():
     noise = torch.randn(64, LATENT_DIM, device=DEVICE)
     fake_imgs = netG(noise).cpu()
 
-# 可视化：8x8 网格
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
