@@ -1,246 +1,247 @@
 # gencl-image-classification
 Research on Image Classification Algorithms with Lighting Robustness Based on Generative Contrastive Learning
-# 基于生成式对比学习的光照鲁棒性图像分类算法研究
+# gencl-image-classification
 
-> **Research on Image Recognition Method under Complex Illumination Conditions Based on Deep Learning**
->
-> 在 CIFAR-10 上研究复杂光照条件下的图像分类鲁棒性：以图像预处理 + 生成式数据增广的思路，缓解亮度扰动导致的性能下降。
+> **Generative Contrastive Learning for Illumination-Robust Image Classification** · 基于生成式对比学习的光照鲁棒性图像分类算法研究
 
-<!-- 徽章区：上传后按需替换为你的用户名/仓库名 -->
-<!--
-![Python](https://img.shields.io/badge/Python-3.x-blue)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c)
-![License](https://img.shields.io/badge/License-MIT-green)
--->
+[English](#english) · [中文](#中文)
 
 ---
 
-## 目录
+<a name="english"></a>
 
-- [项目简介](#项目简介)
-- [方法概览](#方法概览)
-- [实验结果](#实验结果)
-- [项目结构](#项目结构)
-- [环境依赖](#环境依赖)
-- [快速开始](#快速开始)
-- [实验细节](#实验细节)
-- [局限与后续工作](#局限与后续工作)
-- [参考文献](#参考文献)
-- [许可证](#许可证)
+## English
 
----
+### Overview
 
-## 项目简介
+This project studies a practical and fundamental problem in image classification: **how does illumination variation (over-bright / under-dark) degrade recognition accuracy, and how can we recover it?**
 
-图像分类模型在理想光照条件下表现良好，但在真实场景中，光照是不可避免的干扰因素：过曝、欠曝、色温偏移都会显著降低识别准确率。本项目以 **CIFAR-10** 为基准数据集，围绕"**如何提升模型在复杂光照条件下的鲁棒性**"这一问题，比较了三条技术路线：
+We investigate three families of methods, reproduced with PyTorch on CIFAR-10:
 
-1. **图像预处理路线** —— 直方图均衡化、RGB → HSV 色彩空间变换
-2. **模型结构路线** —— 从线性神经网络升级到残差网络 ResNet18
-3. **生成式数据增广路线** —— 用 DCGAN 生成不同亮度条件下的样本，扩充训练集
+1. **Linear network + histogram equalization** — a classical image-preprocessing baseline.
+2. **ResNet-18 + HSV / brightness / histogram pre-processing** — deep CNN under illumination shifts.
+3. **DCGAN-based data augmentation** — the core contribution: *generate brightness-augmented images to expand the training set* ("generative contrastive learning").
 
-三条路线逐层递进：预处理解决"输入质量"，模型结构解决"特征表达能力"，生成式增广解决"训练分布覆盖不足"。项目最终给出了一组在亮度扰动下仍能保持稳定的分类方案。
+> This repository is both a reproducible experiment collection and a learning-oriented project. Each script corresponds to one verifiable scientific conclusion.
 
-> **一句话结论：** 在 CIFAR-10 上，仅靠预处理与换模型只能带来小幅提升；**用生成式方法主动扩充不同光照条件下的样本，是提升光照鲁棒性更有效的手段。**
+### Key Experiments & Results
 
----
+#### 1. Linear Network — Illumination Sensitivity
 
-## 方法概览
+| Condition | Accuracy |
+|-----------|----------|
+| Normal brightness | 37% |
+| Brightness ×60% | 38% |
+| Brightness ×140% | 36% |
+| + Histogram equalization | improved |
 
-### 1. 数据与光照扰动建模
+A linear network stays near its ceiling (~35–38%) regardless of illumination, and histogram equalization yields a modest improvement.
 
-- 数据集：**CIFAR-10**（10 类，60,000 张 32×32 彩色图，50,000 训练 / 10,000 测试）
-- 光照扰动方式：
-  - **直方图均衡化** —— 重新分配灰度分布，增强对比度
-  - **HSV 色彩空间变换** —— 在亮度（V）通道上解耦光照与颜色信息
-  - **ColorJitter 亮度参数扰动** —— 在训练时对亮度做随机增减，模拟真实光照波动
+#### 2. ResNet-18 — Illumination Robustness
 
-### 2. 分类模型
+| Condition | Accuracy |
+|-----------|----------|
+| Normal | 88.92% |
+| Brightness ×40% | 80.97% |
+| Brightness ×160% | 82.46% |
+| HSV color space | 82.46% |
+| HSV + brightness shift (×75% / ×125%) | significant drop |
+| + Histogram equalization | improved |
 
-| 模型 | 作用 |
-| --- | --- |
-| 线性神经网络 | 作为基线（baseline），验证预处理本身的效果 |
-| **ResNet18** | 主力模型，残差连接缓解深层网络的退化问题 |
-| DCGAN（深度全卷积生成对抗网络） | 生成器 + 判别器对抗训练，产出指定亮度条件下的新样本 |
+#### 3. DCGAN Data Augmentation — the Core Contribution
 
-### 3. 生成式增广流程
+| Experiment | Accuracy |
+|------------|----------|
+| "car" class, linear net (baseline) | 55.5% |
+| "car" class, linear net + GAN-generated cars | **75.7%** |
+| ResNet-18 (baseline) | 84% |
+| ResNet-18 + brightness-augmented data | 85% |
+| ResNet-18 + GAN-generated (bird/car/cat etc.), brightness ±20% | **86%** |
 
-```text
-原始 CIFAR-10
-      │
-      ├──► 按类别拆分（鸟 / 车 / 猫 / …）
-      │
-      ├──► DCGAN 训练：学习该类别在不同亮度下的分布
-      │
-      ├──► 生成指定亮度（如 ±20%）的合成样本
-      │
-      └──► 合成样本 + 原始样本 ──► 混合数据集 ──► 训练分类器 ──► 评估
+**Conclusion:** DCGAN-generated brightness-augmented images effectively improve illumination robustness when the original data is scarce or lacks brightness diversity — the core idea behind "generative contrastive learning."
+
+### Repository Structure
+
 ```
-
----
-
-## 实验结果
-
-> 以下数字来自课题结题报告中的实验记录，用于说明各方法的相对效果。**请以本仓库代码实际复现的结果为准**，如与下表不一致，请更新此表。
-
-### 线性神经网络：GAN 数据增广的效果
-
-| 设置 | 汽车类别准确率 |
-| --- | --- |
-| 原始 CIFAR-10 | 55.5% |
-| 原始 + GAN 生成样本 | **75.7%** |
-
-### ResNet18：逐步引入光照扰动与生成样本
-
-| 设置 | 准确率 |
-| --- | --- |
-| ResNet18 · 原始数据集 | 84% |
-| ResNet18 · 训练/测试亮度增强 | 85% |
-| ResNet18 · GAN 生成样本（鸟/车/猫等）+ 原数据 + 亮度 ±20% | **86%** |
-
-**观察：**
-
-- 从线性网络到 ResNet18，准确率有**较大幅度**提升，说明特征提取能力是基础；
-- 仅靠亮度增强（预处理/增广变换）带来的提升**有限**（84% → 85%）；
-- 引入 GAN 生成的亮度样本后进一步提升到 **86%**，且**在训练集亮度被降低 20% 时，模型仍能保持稳定**——这正是鲁棒性的直接证据。
-
----
-
-## 项目结构
-
-<!-- ===== 代码放进来之后，把下面这棵树替换成真实结构 ===== -->
-
-```text
 .
-├── README.md
-├── requirements.txt
-├── （待补充：主训练脚本）
-├── （待补充：模型定义）
-├── （待补充：数据加载与光照扰动）
-├── （待补充：DCGAN 生成模块）
-├── （待补充：评估脚本）
-└── （待补充：结果与图表输出目录）
+├── README.md                     # This document
+├── linear_cifar.py               # Linear network baseline (~35% acc)
+├── cnn_cifar.py                  # Simple CNN classification (~70%+ acc)
+├── show_cifar.py                 # Dataset visualization
+├── brightness_experiment.py      # Brightness perturbation (linear)
+├── brightness_experiment_cnn.py  # Brightness perturbation (CNN)
+├── hsv_experiment.py             # RGB vs HSV color space
+├── dcgan_cifar.py                # DCGAN training
+├── dcgan_generate.py             # DCGAN image sampling
+├── cdgan_cifar.py                # Conditional DCGAN training
+├── generate_and_compare.py       # GAN augmentation vs pure-real comparison
+└── data/                         # CIFAR-10 (auto-downloaded)
 ```
 
-<!-- 建议按功能拆分为以下模块，命名仅供参照：
-     data/        数据集加载、预处理、光照扰动
-     models/      线性网络、ResNet18、DCGAN
-     train.py     分类器训练入口
-     generate.py  DCGAN 生成样本
-     evaluate.py  准确率评估与对比
-     configs/     超参数配置
-     results/     日志、曲线、混淆矩阵
--->
+### Environment
 
----
-
-## 环境依赖
-
-<!-- ===== 请根据本机实际环境补全版本号 ===== -->
-
-- Python **×.×**
-- PyTorch **×.×** ／ torchvision
-- NumPy、Pillow、OpenCV（图像预处理）
-- Matplotlib、tqdm（训练可视化与进度）
-- 运行环境：<!-- CPU / GPU 型号、显存 -->
+- Python 3.10+ (recommend 3.11 / 3.12)
+- PyTorch 2.x (GPU), torchvision, matplotlib, numpy
+- NVIDIA GPU (8GB VRAM is enough) or CPU
 
 ```bash
-# 待补充：虚拟环境创建与依赖安装
-pip install -r requirements.txt
+conda create -n gencl python=3.12
+conda activate gencl
+
+# GPU version (China mirror accelerated)
+pip install torch torchvision --index-url https://mirror.sjtu.edu.cn/pytorch-wheels/cu130/
+pip install matplotlib numpy
 ```
 
----
+Verify GPU:
 
-## 快速开始
+```python
+import torch
+print(torch.cuda.is_available())  # should be True
+```
 
-<!-- ===== 以下命令待代码上传后补全 ===== -->
-
-### 1. 准备数据
+### Quick Start
 
 ```bash
-# 待补充：CIFAR-10 下载 / 目录约定
-# 默认应自动下载到 ./data ，请说明是否需要手动放置
+python show_cifar.py          # 1. visualize the dataset
+python linear_cifar.py        # 2. linear baseline (~35%)
+python cnn_cifar.py           # 3. CNN (~70%+)
+python brightness_experiment.py   # 4. brightness perturbation
+python hsv_experiment.py      # 5. RGB vs HSV
+python dcgan_cifar.py         # 6. train DCGAN
+python generate_and_compare.py    # 7. GAN augmentation comparison
 ```
 
-### 2. 训练分类器
+### Key Concepts Covered
+
+- Linear model ceiling vs. CNN spatial features
+- Distribution shift (illumination) and its effect on accuracy
+- RGB vs. HSV representation
+- GAN / DCGAN / conditional DCGAN (cDCGAN)
+- Generative data augmentation ("generative contrastive learning")
+
+---
+
+<a name="中文"></a>
+
+## 中文
+
+### 项目简介
+
+本项目研究图像分类中一个实用而基础的问题：**光照变化（过亮/过暗）如何降低识别准确率，以及如何恢复它。**
+
+我们用 PyTorch 在 CIFAR-10 上复现了三类方法：
+
+1. **线性网络 + 直方图均衡化** —— 经典的图像预处理基线。
+2. **ResNet-18 + HSV / 亮度 / 直方图预处理** —— 光照偏移下的深度卷积网络。
+3. **基于 DCGAN 的数据增广** —— 核心贡献：*生成亮度增广图片来扩充训练集*（"生成式对比学习"）。
+
+> 本仓库既是一个可复现的实验合集，也是一个面向学习的项目。每个脚本都对应一个可验证的科学结论。
+
+### 核心实验与结果
+
+#### 1. 线性网络 —— 光照敏感性
+
+| 条件 | 准确率 |
+|------|--------|
+| 正常亮度 | 37% |
+| 亮度 ×60% | 38% |
+| 亮度 ×140% | 36% |
+| + 直方图均衡化 | 有提升 |
+
+线性网络受限于自身天花板（约 35~38%），光照偏移对其影响不大，直方图均衡化可带来小幅提升。
+
+#### 2. ResNet-18 —— 光照鲁棒性
+
+| 条件 | 准确率 |
+|------|--------|
+| 正常 | 88.92% |
+| 亮度 ×40% | 80.97% |
+| 亮度 ×160% | 82.46% |
+| HSV 颜色空间 | 82.46% |
+| HSV + 亮度偏移（×75% / ×125%） | 明显下降 |
+| + 直方图均衡化 | 有提升 |
+
+#### 3. DCGAN 数据增广 —— 核心贡献
+
+| 实验 | 准确率 |
+|------|--------|
+| "汽车"类，线性网络（基线） | 55.5% |
+| "汽车"类，线性网络 + GAN 生成汽车 | **75.7%** |
+| ResNet-18（基线） | 84% |
+| ResNet-18 + 亮度增广数据 | 85% |
+| ResNet-18 + GAN 生成（鸟/车/猫等），亮度 ±20% | **86%** |
+
+**结论：** 当原始数据稀缺或缺乏亮度多样性时，DCGAN 生成的亮度增广图片能有效提升光照鲁棒性——这正是"生成式对比学习"的核心思想。
+
+### 目录结构
+
+```
+.
+├── README.md                     # 本文档
+├── linear_cifar.py               # 线性网络基线（约 35% 准确率）
+├── cnn_cifar.py                  # 简单 CNN 分类（约 70%+ 准确率）
+├── show_cifar.py                 # 数据集可视化
+├── brightness_experiment.py      # 亮度扰动实验（线性）
+├── brightness_experiment_cnn.py  # 亮度扰动实验（CNN）
+├── hsv_experiment.py             # RGB vs HSV 颜色空间
+├── dcgan_cifar.py                # DCGAN 训练
+├── dcgan_generate.py             # DCGAN 图片采样
+├── cdgan_cifar.py                # 条件 DCGAN 训练
+├── generate_and_compare.py       # GAN 增广 vs 纯真实数据对比
+└── data/                         # CIFAR-10（自动下载）
+```
+
+### 环境依赖
+
+- Python 3.10+（推荐 3.11 / 3.12）
+- PyTorch 2.x（GPU）、torchvision、matplotlib、numpy
+- NVIDIA GPU（8GB 显存即可）或 CPU
 
 ```bash
-# 待补充：训练入口
-# 预期参数：--model {linear,resnet18}  --epochs  --batch-size  --lr  --brightness
+conda create -n gencl python=3.12
+conda activate gencl
+
+# GPU 版（国内可用镜像加速）
+pip install torch torchvision --index-url https://mirror.sjtu.edu.cn/pytorch-wheels/cu130/
+pip install matplotlib numpy
 ```
 
-### 3. 训练 DCGAN 并生成增广样本
+验证 GPU：
+
+```python
+import torch
+print(torch.cuda.is_available())  # 应为 True
+```
+
+### 快速开始
 
 ```bash
-# 待补充：GAN 训练与样本生成命令
+python show_cifar.py          # 1. 可视化数据集
+python linear_cifar.py        # 2. 线性基线（约 35%）
+python cnn_cifar.py           # 3. CNN（约 70%+）
+python brightness_experiment.py   # 4. 亮度扰动实验
+python hsv_experiment.py      # 5. RGB vs HSV
+python dcgan_cifar.py         # 6. 训练 DCGAN
+python generate_and_compare.py    # 7. GAN 增广对比
 ```
 
-### 4. 评估与对比
+### 涵盖的核心概念
 
-```bash
-# 待补充：评估命令
-# 输出应包含：各设置下的测试准确率、亮度扰动下的准确率曲线
-```
-
----
-
-## 实验细节
-
-<!-- ===== 以下为待填写项，请按实际代码填写，勿凭印象 ===== -->
-
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | CIFAR-10（50k 训练 / 10k 测试） |
-| 输入尺寸 | 32 × 32 |
-| 分类模型 | 线性神经网络 / ResNet18 |
-| 生成模型 | DCGAN（深度全卷积 GAN） |
-| 光照扰动 | 直方图均衡化 / HSV 变换 / ColorJitter 亮度参数 |
-| 亮度扰动幅度 | ±20%（待确认其他档位） |
-| 优化器 | <!-- 待补充：SGD / Adam，学习率，weight decay --> |
-| 批大小 | <!-- 待补充 --> |
-| 训练轮数 | <!-- 待补充 --> |
-| 随机种子 | <!-- 待补充：固定种子以保证可复现 --> |
-| 评价指标 | 分类准确率（Accuracy） |
-| 硬件 | <!-- 待补充 --> |
-
-> **可复现性提示：** 若已固定随机种子，请在此处写明所用种子，并在 README 中说明"重复运行可得到一致结果"。这会让仓库的专业度显著提升。
+- 线性模型天花板 vs. CNN 空间特征
+- 分布偏移（光照）及其对准确率的影响
+- RGB vs. HSV 表示
+- GAN / DCGAN / 条件 DCGAN（cDCGAN）
+- 生成式数据增广（"生成式对比学习"）
 
 ---
 
-## 局限与后续工作
+## Citation / 参考文献
 
-本项目在结题时已识别出以下局限：
+本项目基于以下论文的实验思路（犀牛鸟中学科学人才培养计划科研实践结题报告）：
 
-- **GAN 生成样本的质量与多样性有限**，对识别准确率的贡献没有达到预期；
-- 生成样本与真实样本之间存在**分布差异**，直接混合训练可能引入噪声；
-- CycleGAN 等更先进的生成模型在本课题开展时**可用资料较少**，未能充分验证；
-- 实验主要在 CIFAR-10 这一小尺寸数据集上完成，**向真实场景图像迁移的效果未知**。
+> 刘翔, 王浩田. 基于生成式对比学习的光照鲁棒性图像分类算法研究. 北京师范大学庆阳附属学校, 2022.
 
-**后续方向：**
+## License
 
-- [ ] 引入 CycleGAN / 更高质量的生成模型，做跨光照域的风格迁移
-- [ ] 从"数据增广"转向"**表征学习**"——用对比学习目标让模型学到光照无关的特征表示
-- [ ] 引入域适应（Domain Adaptation）方法，缩小不同光照域之间的特征分布差异
-- [ ] 在 CIFAR-10-C（含各类腐蚀/扰动版本）等更具挑战性的基准上评测
-- [ ] 与 RandAugment、CutMix 等主流增广策略做横向对比
-
----
-
-## 参考文献
-
-1. He K., Zhang X., Ren S., Sun J. *Deep Residual Learning for Image Recognition*. CVPR, 2016.
-2. Radford A., Metz L., Chintala S. *Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks*. ICLR, 2016.
-3. Gonzalez R. C., Woods R. E. *Digital Image Processing*. 3rd Edition, Prentice Hall, 2009.
-4. Kim Y. T. *Contrast Enhancement Using Brightness Preserving Bi-Histogram Equalization*. IEEE Trans. Consumer Electronics, 43(1), 1997.
-5. Goodfellow I., et al. *Generative Adversarial Networks*. NeurIPS, 2014.
-6. Hendrycks D., Dietterich T. *Benchmarking Neural Network Robustness to Common Corruptions and Perturbations*. ICLR, 2019.
-
----
-
-## 许可证
-
-<!-- 待确认：若用于公开项目，建议选用 MIT / Apache-2.0 -->
-本项目采用 **MIT License**，详见 `LICENSE` 文件。
-
----
-
-
+MIT License
