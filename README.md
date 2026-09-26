@@ -5,10 +5,10 @@
 [English](#english) · [中文](#中文)
 
 ---
-# co-author
-Wang Haotian **Northwest A&F University**
+### Author
+Wang Haotian  **Northwest A&F University Student**
 
-Liu Xiang  **Qingdao University of Technology**
+Liu Xiang   **Qingdao University of Technology Student**
 <a name="english"></a>
 
 ## English
