@@ -245,4 +245,4 @@ python generate_and_compare.py    # 7. GAN 增广对比
 
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
