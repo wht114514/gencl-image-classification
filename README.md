@@ -1,6 +1,4 @@
 # gencl-image-classification
-Research on Image Classification Algorithms with Lighting Robustness Based on Generative Contrastive Learning
-# gencl-image-classification
 
 > **Generative Contrastive Learning for Illumination-Robust Image Classification** · 基于生成式对比学习的光照鲁棒性图像分类算法研究
 
