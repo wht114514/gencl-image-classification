@@ -5,18 +5,18 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# ============ 参数 ============
-EPOCHS = 10            # 对比实验两个模型都用相同 epoch，保证公平
+
+EPOCHS = 10          
 BATCH_SIZE = 64
 LATENT_DIM = 100
 NUM_CLASSES = 10
-FAKE_PER_CLASS = 500   # 每类生成 500 张假图（共 5000 张，约为真实数据的 10%）
+FAKE_PER_CLASS = 500  
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.manual_seed(42)
 
 normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
-# ============ 数据 ============
+
 train_transform = transforms.Compose([transforms.ToTensor(), normalize])
 test_transform = train_transform
 
@@ -29,7 +29,7 @@ real_trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                              download=True, transform=train_transform)
 
 
-# ============ cDCGAN 生成器（结构必须和训练时一致） ============
+
 class Generator(nn.Module):
     def __init__(self):
         super().__init__()
@@ -54,7 +54,6 @@ class Generator(nn.Module):
         return self.main(z)
 
 
-# ============ 生成带标签的假图 ============
 print(f'设备: {DEVICE}')
 print('加载 cDCGAN 生成器...')
 netG = Generator().to(DEVICE)
@@ -79,7 +78,7 @@ fake_labels = torch.cat(fake_labels_list)
 print(f'生成完成: {fake_imgs.shape[0]} 张假图')
 
 
-# ============ 混合数据集 ============
+#mix
 from torch.utils.data import Dataset, ConcatDataset
 
 
@@ -99,7 +98,7 @@ class FakeDataset(Dataset):
 
 fake_dataset = FakeDataset(fake_imgs, fake_labels)
 
-# ============ SimpleCNN ============
+
 class SimpleCNN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -152,15 +151,15 @@ def train_and_eval(train_dataset, tag):
     return accs
 
 
-# ============ 跑两组对比实验 ============
-print('\n===== 组 1: 纯真实数据 =====')
+
+print('\n组 1: 纯真实数据')
 accs_real = train_and_eval(real_trainset, '纯真实')
 
-print('\n===== 组 2: 真实 + GAN 生成数据 =====')
+print('\n组 2: 真实 + GAN 生成数据')
 mixed_dataset = ConcatDataset([real_trainset, fake_dataset])
 accs_mixed = train_and_eval(mixed_dataset, '真实+生成')
 
-# ============ 画对比图 ============
+#draw
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -187,7 +186,7 @@ plt.savefig(filename, dpi=200, bbox_inches='tight')
 print(f'\n对比图已保存为: {filename}')
 plt.show()
 
-print('\n========== 实验结论 ==========')
+print('\n实验结论')
 diff = accs_mixed[-1] - accs_real[-1]
 print(f'纯真实数据:     {accs_real[-1]:.2f}%')
 print(f'真实+GAN生成:   {accs_mixed[-1]:.2f}%')
