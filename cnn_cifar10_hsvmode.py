@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# ============ 参数 ============
+
 EPOCHS = 10
 BATCH_SIZE = 64
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -14,19 +14,15 @@ normalize = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
 
 def rgb_to_hsv(img_tensor):
-    """把 RGB 张量 (3, H, W) 转成 HSV。
-    使用 torchvision 内置转换：需要先转 PIL，再 ToTensor。
-    这里用更直接的方式：torchvision.transforms.functional.hsv 相关接口。
-    实际上 torchvision 没有直接张量级 rgb2hsv，所以我们走 PIL 路线。"""
-    # 张量 -> PIL -> HSV -> 张量
+   
     from PIL import Image
     import torchvision.transforms.functional as F
     img_pil = F.to_pil_image(img_tensor)      # (3,H,W) -> PIL RGB
     img_hsv = img_pil.convert('HSV')          # PIL HSV
-    return F.to_tensor(img_hsv)               # -> (3,H,W) 张量，范围 [0,1]
+    return F.to_tensor(img_hsv)               # (3,H,W) 张量，范围 [0,1]
 
 
-# 测试集统一转 HSV
+
 test_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Lambda(rgb_to_hsv),
@@ -37,7 +33,7 @@ testset = torchvision.datasets.CIFAR10(root='./data', train=False,
 testloader = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE,
                                          shuffle=False, num_workers=0)
 
-# 训练集也转 HSV
+
 train_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Lambda(rgb_to_hsv),
@@ -66,7 +62,6 @@ class SimpleCNN(nn.Module):
         return self.fc(x)
 
 
-# ============ 训练 ============
 print(f'设备: {DEVICE}')
 net = SimpleCNN().to(DEVICE)
 criterion = nn.CrossEntropyLoss()
@@ -103,18 +98,18 @@ for epoch in range(EPOCHS):
     test_accs.append(acc)
     print(f'Epoch {epoch+1}/{EPOCHS}  Loss: {avg_loss:.3f}  准确率: {acc:.2f}%')
 
-# ============ 画图 ============
+
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 fig, ax = plt.subplots(figsize=(10, 6))
 epochs = list(range(1, EPOCHS + 1))
 
-# HSV 实验结果曲线
+
 ax.plot(epochs, test_accs, color='#2A9D8F', marker='^', markersize=4,
         linewidth=2, label='HSV 颜色空间')
 
-# RGB 基线（你已有的 72.87%）
+
 BASELINE_ACC = 72.87
 ax.axhline(BASELINE_ACC, color='#2E6FDB', linestyle='--', linewidth=2,
            label=f'RGB 基线 {BASELINE_ACC}%')
@@ -135,6 +130,6 @@ plt.savefig(filename, dpi=200, bbox_inches='tight')
 print(f'\n对比图已保存为: {filename}')
 plt.show()
 
-print('\n========== 实验结果 ==========')
+print('\n实验结果')
 print(f'RGB 基线: {BASELINE_ACC:.2f}%')
 print(f'HSV 实验: 最终 {test_accs[-1]:.2f}%  (最高 {max(test_accs):.2f}%)')
