@@ -1,4 +1,4 @@
-# gencl-image-classification
+# image-classification on CIFAR-10
 
 > **Generative Contrastive Learning for Illumination-Robust Image Classification** · 基于生成式对比学习的光照鲁棒性图像分类算法研究
 
